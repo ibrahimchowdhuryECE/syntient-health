@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: Diagnosis Model API
+  description: Triage and urgency evaluation service for medical complaints
+  version: 1.0.0
+  contact:
+    name: Platform Team
+servers:
+  - url: http://localhost:8001
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00Z"
+
+  /dm/evaluate:
+    post:
+      summary: Evaluate patient complaint for urgency and triage
+      description: Analyzes patient symptoms and medical data to determine urgency category
+      operationId: evaluateComplaint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluateRequest'
+            example:
+              policy:
+                confidence_threshold: 0.7
+              evidence:
+                patient_id: "patient_789"
+                presenting_complaint: "chest pain"
+                fields:
+                  age: 45
+                  gender: "M"
+                  blood_pressure: "140/90"
+                  heart_rate: 95
+                free_text: "Chest pain started 2 hours ago, radiating to left arm"
+      responses:
+        '200':
+          description: Evaluation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateResponse'
+              example:
+                decision_ready: true
+                mts_category: "very_urgent"
+                confidence: 0.78
+                followups: []
+                immediate_flag: false
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid request payload"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    EvaluateRequest:
+      type: object
+      required:
+        - policy
+        - evidence
+      properties:
+        policy:
+          $ref: '#/components/schemas/EvaluationPolicy'
+        evidence:
+          $ref: '#/components/schemas/PatientEvidence'
+
+    EvaluationPolicy:
+      type: object
+      required:
+        - confidence_threshold
+      properties:
+        confidence_threshold:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Minimum confidence level required for decision
+          example: 0.7
+
+    PatientEvidence:
+      type: object
+      required:
+        - patient_id
+        - presenting_complaint
+        - fields
+      properties:
+        patient_id:
+          type: string
+          description: Unique identifier for the patient
+          example: "patient_789"
+        presenting_complaint:
+          type: string
+          description: Primary medical complaint
+          example: "chest pain"
+        fields:
+          type: object
+          description: Structured patient data fields
+          additionalProperties: true
+          example:
+            age: 45
+            gender: "M"
+            blood_pressure: "140/90"
+            heart_rate: 95
+            temperature: "98.6"
+        free_text:
+          type: string
+          description: Additional free-form text from patient
+          example: "Chest pain started 2 hours ago, radiating to left arm"
+
+    EvaluateResponse:
+      type: object
+      required:
+        - decision_ready
+        - mts_category
+        - confidence
+        - followups
+        - immediate_flag
+      properties:
+        decision_ready:
+          type: boolean
+          description: Whether sufficient information is available for a decision
+          example: true
+        mts_category:
+          type: string
+          enum: [immediate, very_urgent, urgent, standard, non_urgent]
+          description: Manchester Triage System category
+          example: "very_urgent"
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Confidence level in the assessment
+          example: 0.78
+        followups:
+          type: array
+          items:
+            type: string
+          description: List of follow-up questions needed
+          example: ["duration", "severity", "radiation"]
+        immediate_flag:
+          type: boolean
+          description: Whether immediate medical attention is required
+          example: false

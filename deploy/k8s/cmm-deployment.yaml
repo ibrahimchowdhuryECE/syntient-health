@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cmm
+  namespace: chatbot
+  labels:
+    app: cmm
+    component: cmm
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cmm
+  template:
+    metadata:
+      labels:
+        app: cmm
+        component: cmm
+    spec:
+      containers:
+      - name: cmm
+        image: chatbot-cmm:latest
+        ports:
+        - containerPort: 8003
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 30
+          periodSeconds: 10

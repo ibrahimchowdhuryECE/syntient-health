@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: ../services/orchestrator
+      dockerfile: Dockerfile
+    container_name: chatbot-orchestrator
+    ports:
+      - "8080:8080"
+    environment:
+      - DM_SERVICE_URL=http://dm:8001
+      - MAM_SERVICE_URL=http://mam:8002
+      - CMM_SERVICE_URL=http://cmm:8003
+      - RETRIEVAL_SERVICE_URL=http://retrieval:8004
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+    depends_on:
+      - dm
+      - mam
+      - cmm
+      - retrieval
+
+  dm:
+    build:
+      context: ../services/dm
+      dockerfile: Dockerfile
+    container_name: chatbot-dm
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+
+  mam:
+    build:
+      context: ../services/mam
+      dockerfile: Dockerfile
+    container_name: chatbot-mam
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+
+  cmm:
+    build:
+      context: ../services/cmm
+      dockerfile: Dockerfile
+    container_name: chatbot-cmm
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+
+  retrieval:
+    build:
+      context: ../services/retrieval
+      dockerfile: Dockerfile
+    container_name: chatbot-retrieval
+    ports:
+      - "8004:8004"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge

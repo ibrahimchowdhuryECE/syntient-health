@@ -1,0 +1,154 @@
+openapi: 3.0.3
+info:
+  title: Chatbot Orchestrator API
+  description: Main orchestrator service for hospital appointment-triage chatbot
+  version: 1.0.0
+  contact:
+    name: Platform Team
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00Z"
+
+  /orch/turn:
+    post:
+      summary: Process a conversation turn
+      description: Main entry point for processing patient interactions
+      operationId: processTurn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnRequest'
+            example:
+              conversation_id: "conv_123"
+              turn_id: "turn_456"
+              payload:
+                patient_id: "patient_789"
+                presenting_complaint: "chest pain"
+                fields:
+                  age: 45
+                  gender: "M"
+                  blood_pressure: "140/90"
+                free_text: "Chest pain started 2 hours ago, radiating to left arm"
+      responses:
+        '200':
+          description: Turn processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnResponse'
+              example:
+                route: "ASK"
+                booking_window: "same_day"
+                prompt: "Has the chest pain lasted more than 15 minutes?"
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid request payload"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    TurnRequest:
+      type: object
+      required:
+        - conversation_id
+        - turn_id
+        - payload
+      properties:
+        conversation_id:
+          type: string
+          description: Unique identifier for the conversation
+          example: "conv_123"
+        turn_id:
+          type: string
+          description: Unique identifier for this turn within the conversation
+          example: "turn_456"
+        payload:
+          $ref: '#/components/schemas/TurnPayload'
+
+    TurnPayload:
+      type: object
+      required:
+        - patient_id
+        - presenting_complaint
+        - fields
+      properties:
+        patient_id:
+          type: string
+          description: Unique identifier for the patient
+          example: "patient_789"
+        presenting_complaint:
+          type: string
+          description: Primary medical complaint
+          example: "chest pain"
+        fields:
+          type: object
+          description: Structured patient data fields
+          additionalProperties: true
+          example:
+            age: 45
+            gender: "M"
+            blood_pressure: "140/90"
+            temperature: "98.6"
+        free_text:
+          type: string
+          description: Additional free-form text from patient
+          example: "Chest pain started 2 hours ago, radiating to left arm"
+
+    TurnResponse:
+      type: object
+      required:
+        - route
+      properties:
+        route:
+          type: string
+          enum: [BOOK, ASK, ESCALATE]
+          description: Action to take based on the turn
+          example: "ASK"
+        booking_window:
+          type: string
+          enum: [same_day, 2_3_days, 7_14_days, routine]
+          description: Suggested booking window if route is BOOK
+          example: "same_day"
+        prompt:
+          type: string
+          description: Follow-up question or message to present to patient
+          example: "Has the chest pain lasted more than 15 minutes?"

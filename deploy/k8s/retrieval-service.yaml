@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: retrieval-service
+  namespace: chatbot
+  labels:
+    app: retrieval
+    component: retrieval
+spec:
+  selector:
+    app: retrieval
+  ports:
+  - name: http
+    port: 8004
+    targetPort: 8004
+    protocol: TCP
+  type: ClusterIP

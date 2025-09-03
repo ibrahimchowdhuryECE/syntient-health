@@ -1,9 +1,8 @@
 # AI Medical Assistant Chatbot — Product Requirements Document (PRD)
 
-**Version:** 1.0  
-**Prepared by:** Development Team  
-**Date:** December 2024  
-**Status:** Draft  
+**Version:** 1.0
+**Prepared by:** \[Your Name]
+**Date:** \[Insert Date]
 
 ---
 
@@ -29,7 +28,7 @@ An Orchestrator coordinates models, EMR/scheduling integrations, audit logging, 
 * **Reduce workload:** Automate repetitive intake and scheduling decisions with human oversight.
 * **Continuity:** Always reference prior encounters to inform current routing and urgency.
 * **Transparency & safety:** Confidence‑based flagging, red‑flag short‑circuits, and rationale logging.
-* **Modularity:** Adapt to each hospital's guidelines via RAG; avoid per‑site LLM fine‑tunes.
+* **Modularity:** Adapt to each hospital’s guidelines via RAG; avoid per‑site LLM fine‑tunes.
 
 ### 2.2 Non‑Goals (v1)
 
@@ -48,7 +47,7 @@ An Orchestrator coordinates models, EMR/scheduling integrations, audit logging, 
 * RAG over clinic/hospital guidelines and pathways with versioned citations.
 * Urgency bands: **U1 (Immediate/ER), U2 (24–48h), U3 (≤14d), U4 (routine/virtual)**.
 * CMM scheduling against triage vs routine slot rules; voluntary reschedule campaigns; overflow escalation to staff when needed.
-* EMR/EHR and scheduling integration where APIs exist; agent UI fallback where they don't.
+* EMR/EHR and scheduling integration where APIs exist; agent UI fallback where they don’t.
 * Audit logs, model rationales, and staff override workflow.
 
 ### 3.2 Out‑of‑Scope (v1)
@@ -104,7 +103,7 @@ An Orchestrator coordinates models, EMR/scheduling integrations, audit logging, 
 ### 7.2 Diagnosis Model (DM)
 
 * **FR‑4:** On each turn, DM returns: `info_sufficient` (bool), `missing_fields` (list), `red_flags` (list), `differential` (Dx + probability), `urgency_band` (U1–U4), `confidence` (0–1), and a succinct `rationale` with guideline citations.
-* **FR‑5:** DM must not emit a firm urgency band or diagnosis until `info_sufficient=true` for that pathway's required fields. If any red‑flag criteria hit, DM can set U1 immediately.
+* **FR‑5:** DM must not emit a firm urgency band or diagnosis until `info_sufficient=true` for that pathway’s required fields. If any red‑flag criteria hit, DM can set U1 immediately.
 * **FR‑6:** Per‑pathway required fields (examples):
 
   * **Chest pain:** onset, character, radiation, exertional nature, dyspnea, diaphoresis, risk factors, vitals.
@@ -144,76 +143,250 @@ An Orchestrator coordinates models, EMR/scheduling integrations, audit logging, 
 
 ---
 
-## 8) Data Contracts (Schemas)
+## 8) Inter‑Service Data Contracts & Interfaces
 
-### 8.1 MAM → DM (encounter update)
+**Scope.** One canonical, language‑agnostic JSON contract between:
 
-```json
-{
-  "patient_id": "P123",
-  "presenting_complaint": "headache",
-  "structured_fields": {
-    "onset": "gradual",
-    "duration_days": 10,
-    "neuro_deficits": false,
-    "fever": false,
-    "age": 34,
-    "pregnant": false,
-    "anticoagulants": false,
-    "pattern_change": true
-  },
-  "free_text": "Throbbing right-sided, light sensitivity."
-}
-```
+* **MAM** (Medical Assistant Model) – conducts the conversation; never diagnoses.
+* **DM** (Diagnosing Model) – infers **MTS category** + confidence/urgency; proposes minimal follow‑ups.
+* **ORCH** (Orchestrator) – routes messages, enforces policy.
 
-### 8.2 DM → Orchestrator (final)
+**Transport.** JSON over HTTPS (or, later, a message bus).
 
-```json
-{
-  "info_sufficient": true,
-  "red_flags": [{"name": "acute neuro deficit", "present": false}],
-  "differential": [
-    {"dx": "Migraine", "prob": 0.56},
-    {"dx": "Tension-type headache", "prob": 0.28},
-    {"dx": "Temporal arteritis", "prob": 0.06}
-  ],
-  "urgency_band": "U2",
-  "confidence": 0.74,
-  "rationale": "Progressive unilateral throbbing, photophobia, no red flags; age <50.",
-  "citations": [{"guideline_id": "HOSP_X_HEADACHE_v3.2", "section": "3.1"}]
-}
-```
+---
 
-### 8.3 Orchestrator → CMM (scheduling request)
+### 8.1 MTS Categories (System of Record)
 
-```json
-{
-  "patient_id": "P123",
-  "urgency_band": "U2",
-  "duration_window_hours": 48,
-  "preferences": {"days": ["Fri"], "times": ["AM"]},
-  "constraints": {"location": "Main Campus", "provider_type": "GP"},
-  "policy_refs": ["TRIAGE_RULES_v1.4"]
-}
-```
+DM outputs one of the five **MTS categories**, plus colour and code:
 
-### 8.4 CMM → Orchestrator (response)
+| Code | Category        | Colour |
+| ---: | --------------- | ------ |
+|    1 | **Immediate**   | Red    |
+|    2 | **Very Urgent** | Orange |
+|    3 | **Urgent**      | Yellow |
+|    4 | **Standard**    | Green  |
+|    5 | **Non‑Urgent**  | Blue   |
+
+> **Booking mapping is clinic policy**, not hardcoded. Typical defaults:
+>
+> * **Immediate** → *no booking; call local emergency number (e.g., 911/999) and human escalation*
+> * **Very Urgent** → *same‑day*
+> * **Urgent** → *2–3 days*
+> * **Standard** → *7–14 days*
+> * **Non‑Urgent** → *routine*
+
+---
+
+### 8.2 Contract Governance
+
+* **Contract‑first.** JSON Schemas + OpenAPI define all shapes.
+* **Boundary validation.** ORCH validates inbound **Evidence** and all DM req/resp; DM validates inbound requests.
+* **Versioning.** Explicit `*_version` fields; additive minor changes; breaking = major bump.
+* **Traceability.** `conversation_id`/`turn_id` everywhere; audit with DM rationale + citations.
+
+---
+
+### 8.3 Message Envelope (all calls)
 
 ```json
 {
-  "proposals": [
-    {"slot_id": "A-2025-08-29-0930", "provider": "GP-12", "fit_score": 0.92}
-  ],
-  "reschedule_plan": {
-    "candidate_ids": ["appt_7812", "appt_7890"],
-    "contact_method": "sms",
-    "message_template_id": "VOLUNTARY_MOVE_24H"
-  },
-  "fallback": "ESCALATE_TO_HUMAN_DISPATCH"
+  "envelope_version": "1.0",
+  "conversation_id": "uuid",
+  "turn_id": "uuid",
+  "sender": "MAM|DM|ORCH",
+  "timestamp": "2025-08-29T16:22:00-04:00",
+  "payload": {}
 }
 ```
 
 ---
+
+### 8.4 Evidence (MAM → ORCH → DM)
+
+Minimal facts for clinical reasoning. `strict_facts` are **pathway‑driven** keys that DM requests dynamically; MAM collects them over the chat.
+
+```json
+{
+  "patient": {
+    "age_years": 34,
+    "is_child": false,
+    "sex": "F",
+    "pregnant": false,
+    "postpartum_weeks": null
+  },
+  "context": { "setting": "booking", "region": "CA", "language": "en-CA" },
+  "hardcoded_minimum": {
+    "main_symptom_category": "chest_pain",
+    "symptom_onset": "25 minutes",
+    "on_anticoagulant": false,
+    "immunosuppressed": false
+  },
+  "strict_facts": {
+    "chest_pain_rest_15min": null,
+    "radiation_arm_jaw": null,
+    "syncope": null,
+    "severe_breathlessness": null,
+    "new_focal_neuro": null,
+    "anaphylaxis_features": null,
+    "looks_very_unwell": null,
+    "gi_bleed_signs": null,
+    "vaginal_bleeding": null,
+    "pregnancy_abdo_pain": null,
+    "suicidal_intent": null,
+    "significant_trauma": null,
+    "paeds_age_lt_3mo_fever": null,
+    "paeds_non_blanching_rash": null,
+    "paeds_neck_stiffness": null,
+    "paeds_poor_intake_or_urine_lethargy": null
+  },
+  "dynamic_evidence": [
+    { "code": "diaphoresis", "value": true, "source": "user_free_text" }
+  ],
+  "free_text": "Tight chest ~25 min, worse on stairs, sweaty."
+}
+```
+
+---
+
+### 8.5 DMRequest (ORCH → DM)
+
+```json
+{
+  "dm_request_version": "1.1",
+  "conversation_id": "uuid",
+  "turn_id": "uuid",
+  "policy": {
+    "followup_mode": "adaptive",
+    "allow_patient_facing_text": false,
+    "confidence_threshold": 0.65,
+    "score_thresholds_to_mts": {
+      "immediate":   [0.90, 1.00],
+      "very_urgent": [0.70, 0.90],
+      "urgent":      [0.55, 0.70],
+      "standard":    [0.40, 0.55],
+      "non_urgent":  [0.00, 0.40]
+    },
+    "mts_to_booking": {
+      "immediate":   { "action": "HUMAN_ESCALATION" },
+      "very_urgent": { "action": "BOOK", "window": "same_day" },
+      "urgent":      { "action": "BOOK", "window": "2_3_days" },
+      "standard":    { "action": "BOOK", "window": "7_14_days" },
+      "non_urgent":  { "action": "BOOK", "window": "routine" }
+    }
+  },
+  "evidence_state": { /* Evidence object */ }
+}
+```
+
+---
+
+### 8.6 DMResponse (DM → ORCH)
+
+```json
+{
+  "dm_response_version": "1.1",
+  "conversation_id": "uuid",
+  "turn_id": "uuid",
+  "outputs": {
+    "decision_ready": true,
+    "model_confidence": 0.78,
+    "urgency_score": 0.86,
+    "mts_category": "very_urgent",
+    "mts_colour": "orange",
+    "mts_code": 2,
+    "immediate_flag": false,
+    "critical_reasons": [],
+    "prelim_differential": [
+      { "snomed": "22298006", "label": "Acute myocardial infarction", "probability": 0.44 },
+      { "snomed": "194828000", "label": "Unstable angina", "probability": 0.22 }
+    ],
+    "followups": [
+      {
+        "type": "strict_confirm",
+        "id": "ACS_REST_15MIN",
+        "text": "Has the chest pain been continuous for more than 15 minutes?",
+        "answer_type": "boolean",
+        "fills": "strict_facts.chest_pain_rest_15min",
+        "why": ["Confirm acute coronary concern"]
+      }
+    ],
+    "notes_for_clinician": [
+      "MTS Very Urgent (Orange) due to exertional chest pain + diaphoresis."
+    ],
+    "audit": { "dm_model_version": "dm-0.4.0" }
+  }
+}
+```
+
+**Rules**
+
+* If `immediate_flag=true`, ORCH must route to `HUMAN_ESCALATION` (and patient sees ER instructions).
+* Otherwise ORCH uses `mts_to_booking` to select a booking window.
+
+---
+
+### 8.7 ORCH → MAM Action
+
+```json
+{
+  "action": {
+    "mts_category": "very_urgent",
+    "decision_ready": true,
+    "immediate_flag": false,
+    "route": "BOOK",
+    "booking_window": "same_day"
+  }
+}
+```
+
+**Routes**
+
+* `BOOK`: book per `booking_window`.
+* `ASK_FOLLOWUP`: ask `followups[0..n]`, then update Evidence and re‑evaluate.
+* `HUMAN_ESCALATION`: connect to staff immediately (Immediate/Red or safeguarding).
+
+---
+
+### 8.8 Validation, Errors, Backward Compatibility
+
+Schemas/OpenAPI live in `contracts/`.
+
+**400 VALIDATION\_FAILED example**
+
+```json
+{
+  "error": "VALIDATION_FAILED",
+  "details": [
+    { "path": "outputs.mts_category", "message": "must be one of immediate|very_urgent|urgent|standard|non_urgent" }
+  ]
+}
+```
+
+**Versioning**: `*_version` required. ORCH may translate old↔new during deprecation.
+
+---
+
+### 8.9 Security & Audit
+
+* **PII minimization.** Prefer `patient_id`/`conversation_id`; avoid names/contacts in model calls.
+* **Redaction.** Avoid logging `free_text` in plaintext; store securely or summarize.
+* **Encryption.** TLS in transit; encrypted audit snapshots at rest.
+
+---
+
+### 8.10 Non‑Goals & Constraints
+
+* MAM never states diagnoses; it explains why an MTS category maps to a booking window.
+* No global max follow‑ups; ORCH may enforce time budgets or turn limits.
+* Vitals optional and omitted in v1.1.
+
+---
+
+### 8.11 Acceptance Criteria
+
+* With minimal Evidence, DM returns an MTS category with `decision_ready=true` in ≥95% of cases without >1 follow‑up.
+* Immediate (Red) always routes to `HUMAN_ESCALATION`.
+* All payloads validate against schemas; backward‑compatible changes do not break clients.
 
 ## 9) Non‑Functional Requirements
 
@@ -331,17 +504,3 @@ An Orchestrator coordinates models, EMR/scheduling integrations, audit logging, 
 ### C. Federated Learning (optional v3)
 
 * Site‑local fine‑tuning on de‑identified features with gradient aggregation; privacy‑preserving techniques (e.g., secure aggregation); no raw PHI leaves hospital boundary.
-
----
-
-## Document History
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | Dec 2024 | Development Team | Initial PRD draft |
-
----
-
-**Document Status:** Draft  
-**Next Review:** January 2025  
-**Approval Required:** Product Manager, Technical Lead, Legal/Compliance

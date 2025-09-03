@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dm
+  namespace: chatbot
+  labels:
+    app: dm
+    component: dm
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dm
+  template:
+    metadata:
+      labels:
+        app: dm
+        component: dm
+    spec:
+      containers:
+      - name: dm
+        image: chatbot-dm:latest
+        ports:
+        - containerPort: 8001
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10

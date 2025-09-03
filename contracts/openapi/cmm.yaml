@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: Clash/Booking Model API
+  description: Appointment scheduling and optimization service with OR-Tools integration
+  version: 1.0.0
+  contact:
+    name: Platform Team
+servers:
+  - url: http://localhost:8003
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00Z"
+
+  /cmm/propose:
+    post:
+      summary: Propose appointment slots
+      description: Suggests available appointment slots based on urgency and constraints
+      operationId: proposeSlots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposeRequest'
+            example:
+              patient_id: "patient_789"
+              mts_category: "urgent"
+              window: "same_day"
+              constraints:
+                preferred_time: "morning"
+                preferred_provider: "dr_smith"
+                max_wait_time: 4
+      responses:
+        '200':
+          description: Appointment proposals generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposeResponse'
+              example:
+                proposals:
+                  - slot_id: "slot_001"
+                    start: "2024-01-15T10:00:00Z"
+                    provider: "dr_smith"
+                  - slot_id: "slot_002"
+                    start: "2024-01-15T11:30:00Z"
+                    provider: "dr_jones"
+                fallback: "NONE"
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid request payload"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    ProposeRequest:
+      type: object
+      required:
+        - patient_id
+        - mts_category
+        - window
+        - constraints
+      properties:
+        patient_id:
+          type: string
+          description: Unique identifier for the patient
+          example: "patient_789"
+        mts_category:
+          type: string
+          enum: [immediate, very_urgent, urgent, standard, non_urgent]
+          description: Manchester Triage System category
+          example: "urgent"
+        window:
+          type: string
+          enum: [same_day, 2_3_days, 7_14_days, routine]
+          description: Target booking window
+          example: "same_day"
+        constraints:
+          type: object
+          description: Scheduling constraints and preferences
+          additionalProperties: true
+          example:
+            preferred_time: "morning"
+            preferred_provider: "dr_smith"
+            max_wait_time: 4
+            location: "main_clinic"
+
+    ProposeResponse:
+      type: object
+      required:
+        - proposals
+        - fallback
+      properties:
+        proposals:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppointmentSlot'
+          description: List of proposed appointment slots
+          example:
+            - slot_id: "slot_001"
+              start: "2024-01-15T10:00:00Z"
+              provider: "dr_smith"
+        fallback:
+          type: string
+          enum: [ESCALATE, PENDING, NONE]
+          description: Fallback action if no suitable slots found
+          example: "NONE"
+
+    AppointmentSlot:
+      type: object
+      required:
+        - slot_id
+        - start
+        - provider
+      properties:
+        slot_id:
+          type: string
+          description: Unique identifier for the appointment slot
+          example: "slot_001"
+        start:
+          type: string
+          format: date-time
+          description: Start time of the appointment slot
+          example: "2024-01-15T10:00:00Z"
+        provider:
+          type: string
+          description: Healthcare provider assigned to the slot
+          example: "dr_smith"

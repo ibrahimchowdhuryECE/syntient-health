@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cmm-service
+  namespace: chatbot
+  labels:
+    app: cmm
+    component: cmm
+spec:
+  selector:
+    app: cmm
+  ports:
+  - name: http
+    port: 8003
+    targetPort: 8003
+    protocol: TCP
+  type: ClusterIP

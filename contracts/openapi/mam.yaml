@@ -1,0 +1,110 @@
+openapi: 3.0.3
+info:
+  title: Medical Assistant Model API
+  description: Service for generating follow-up questions and patient communication
+  version: 1.0.0
+  contact:
+    name: Platform Team
+servers:
+  - url: http://localhost:8002
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00Z"
+
+  /mam/ask:
+    post:
+      summary: Generate follow-up questions or messages
+      description: Creates appropriate follow-up questions based on required information
+      operationId: generateFollowUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskRequest'
+            example:
+              followups: ["duration", "severity"]
+              locale: "en-US"
+      responses:
+        '200':
+          description: Follow-up question generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AskResponse'
+              example:
+                prompt: "How long has the chest pain been present?"
+                expected_field: "duration"
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid request payload"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    AskRequest:
+      type: object
+      required:
+        - followups
+      properties:
+        followups:
+          type: array
+          items:
+            type: string
+          description: List of follow-up questions needed
+          example: ["duration", "severity", "radiation"]
+        locale:
+          type: string
+          description: Locale for language-specific question generation
+          default: "en-US"
+          example: "en-US"
+
+    AskResponse:
+      type: object
+      required:
+        - prompt
+        - expected_field
+      properties:
+        prompt:
+          type: string
+          description: The follow-up question or message to present to the patient
+          example: "How long has the chest pain been present?"
+        expected_field:
+          type: string
+          description: The field name that should capture the patient's response
+          example: "duration"

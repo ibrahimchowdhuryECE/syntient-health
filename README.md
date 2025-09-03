@@ -1,59 +1,179 @@
-# AI Medical Assistant Chatbot
+# Hospital Appointment-Triage Chatbot Platform
 
-An AI-driven, human-supervised appointment and triage system designed to optimize healthcare scheduling and prioritize urgent cases in large hospital networks.
+A microservices-based platform for intelligent hospital appointment scheduling and triage.
 
-## 🏥 Overview
+## Architecture
 
-This system addresses the critical challenge of appointment backlogs in healthcare by implementing intelligent triage and scheduling optimization. It consists of three specialized AI models working in concert:
+The platform consists of five core services:
 
-- **Diagnosis Model (DM)** - Clinical reasoning and urgency assessment
-- **Medical Assistant Model (MAM)** - Patient communication and data collection  
-- **Clash Management Model (CMM)** - Scheduling optimization and conflict resolution
+- **Orchestrator (ORCH)**: Java Spring Boot service - HTTP REST API, source of truth, routes calls
+- **Diagnosis Model (DM)**: Python FastAPI service - triage/urgency evaluation
+- **Medical Assistant Model (MAM)**: Python FastAPI service - follow-up questions/messages
+- **Clash/Booking Model (CMM)**: Python FastAPI service - appointment scheduling with OR-Tools
+- **Retrieval**: Python FastAPI service - RAG (Retrieval-Augmented Generation) placeholder
 
-## 🎯 Key Features
+## Prerequisites
 
-- **Urgency-based prioritization** - Ensures high-risk cases receive timely appointments
-- **Clinical safety** - Red-flag detection with immediate escalation to emergency care
-- **Human oversight** - All critical decisions reviewed by medical staff
-- **EMR integration** - Seamless connection with existing healthcare systems
-- **Audit compliance** - Full traceability for regulatory requirements
+- Docker & Docker Compose
+- JDK 21
+- Python 3.11
+- Make (optional, for convenience commands)
 
-## 📋 Documentation
+## Quick Start
 
-- **[Product Requirements Document (PRD)](docs/PRD.md)** - Comprehensive technical specification
-- **Architecture Overview** - System design and component interactions
-- **API Documentation** - Integration endpoints and data contracts
-- **Deployment Guide** - Installation and configuration instructions
+### Local Development
 
-## 🚀 Quick Start
+1. **Start all services:**
+   ```bash
+   make up
+   # or
+   docker compose up
+   ```
 
-*Coming soon - Implementation in progress*
+2. **Verify services are running:**
+   ```bash
+   curl http://localhost:8080/health  # Orchestrator
+   curl http://localhost:8001/health  # DM
+   curl http://localhost:8002/health  # MAM
+   curl http://localhost:8003/health  # CMM
+   curl http://localhost:8004/health  # Retrieval
+   ```
 
-## 🔒 Security & Compliance
+### Testing Individual Services
 
-- HIPAA/PHIPA/GDPR compliant
-- End-to-end encryption
-- Role-based access control
-- Full audit logging
-- Data locality controls
+**Orchestrator (Main Entry Point):**
+```bash
+curl -X POST http://localhost:8080/orch/turn \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversation_id": "conv_123",
+    "turn_id": "turn_456",
+    "payload": {
+      "patient_id": "patient_789",
+      "presenting_complaint": "chest pain",
+      "fields": {"age": 45, "gender": "M"},
+      "free_text": "Chest pain started 2 hours ago"
+    }
+  }'
+```
 
-## 📊 Performance Targets
+**Diagnosis Model:**
+```bash
+curl -X POST http://localhost:8001/dm/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policy": {"confidence_threshold": 0.7},
+    "evidence": {
+      "patient_id": "patient_789",
+      "presenting_complaint": "chest pain",
+      "fields": {"age": 45, "gender": "M"},
+      "free_text": "Chest pain started 2 hours ago"
+    }
+  }'
+```
 
-- **Response Time**: ≤ 2.5s for patient interactions
-- **Accuracy**: ≥ 85% agreement with clinician urgency assessments
-- **Safety**: ≤ 0.5% red-flag miss rate
-- **Availability**: ≥ 99.5% uptime
+**Medical Assistant Model:**
+```bash
+curl -X POST http://localhost:8002/mam/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "followups": ["duration", "severity"],
+    "locale": "en-US"
+  }'
+```
 
-## 🤝 Contributing
+**Clash/Booking Model:**
+```bash
+curl -X POST http://localhost:8003/cmm/propose \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": "patient_789",
+    "mts_category": "urgent",
+    "window": "same_day",
+    "constraints": {"preferred_time": "morning"}
+  }'
+```
 
-This project is currently in development. Please refer to the [PRD](docs/PRD.md) for detailed requirements and specifications.
+**Retrieval Service:**
+```bash
+curl -X POST http://localhost:8004/kb/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pathway": "cardiology",
+    "query": "chest pain assessment"
+  }'
+```
 
-## 📄 License
+## Development Commands
 
-*License information to be determined*
+```bash
+# Build all Docker images
+make build
 
----
+# Run unit tests
+make test
 
-**Status**: Development Phase  
-**Version**: 1.0  
-**Last Updated**: December 2024
+# Start services
+make up
+
+# Stop services
+make down
+
+# View logs
+make logs
+```
+
+## Project Structure
+
+```
+chatbot-platform/
+├── contracts/          # OpenAPI specifications
+├── deploy/            # Docker Compose & K8s manifests
+├── services/          # Individual microservices
+│   ├── orchestrator/  # Java Spring Boot
+│   ├── dm/           # Diagnosis Model (Python)
+│   ├── mam/          # Medical Assistant Model (Python)
+│   ├── cmm/          # Clash/Booking Model (Python)
+│   └── retrieval/    # Retrieval service (Python)
+├── sdks/             # Generated client libraries
+└── .github/          # CI/CD workflows
+```
+
+## API Documentation
+
+Each service exposes OpenAPI documentation at `/docs` when running:
+
+- Orchestrator: http://localhost:8080/docs
+- DM: http://localhost:8001/docs
+- MAM: http://localhost:8002/docs
+- CMM: http://localhost:8003/docs
+- Retrieval: http://localhost:8004/docs
+
+## Current Status
+
+⚠️ **STUB IMPLEMENTATION ONLY** ⚠️
+
+This is a scaffold with:
+- ✅ Service infrastructure and networking
+- ✅ API contracts (OpenAPI specs)
+- ✅ Docker containerization
+- ✅ Kubernetes manifests
+- ✅ CI/CD pipeline structure
+- ❌ No business logic implemented
+- ❌ No database connections
+- ❌ No authentication/authorization
+- ❌ No state management
+
+All services return static stub responses for development and testing purposes.
+
+## Contributing
+
+1. Follow the established service boundaries
+2. Implement business logic within service boundaries
+3. Update OpenAPI contracts when changing interfaces
+4. Add tests for new functionality
+5. Update this README with new endpoints/examples
+
+## License
+
+[Add your license here]

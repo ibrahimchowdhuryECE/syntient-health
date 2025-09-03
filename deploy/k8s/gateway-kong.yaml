@@ -1,0 +1,64 @@
+# Kong Gateway Configuration - Placeholder
+# This file will contain Kong ingress routes for the chatbot platform
+# To be implemented when Kong is deployed
+
+# Example Kong Ingress configuration:
+# apiVersion: configuration.konghq.com/v1
+# kind: KongIngress
+# metadata:
+#   name: chatbot-gateway
+#   namespace: chatbot
+# spec:
+#   routes:
+#   - name: orchestrator-route
+#     protocols:
+#     - http
+#     - https
+#     paths:
+#     - /orch
+#     strip_path: true
+#     preserve_host: true
+#     service: orchestrator-service
+#   - name: dm-route
+#     protocols:
+#     - http
+#     - https
+#     paths:
+#     - /dm
+#     strip_path: true
+#     preserve_host: true
+#     service: dm-service
+#   - name: mam-route
+#     protocols:
+#     - http
+#     - https
+#     paths:
+#     - /mam
+#     strip_path: true
+#     preserve_host: true
+#     service: mam-service
+#   - name: cmm-route
+#     protocols:
+#     - http
+#     - https
+#     paths:
+#     - /cmm
+#     strip_path: true
+#     preserve_host: true
+#     service: cmm-service
+#   - name: retrieval-route
+#     protocols:
+#     - http
+#     - https
+#     paths:
+#     - /kb
+#     strip_path: true
+#     preserve_host: true
+#     service: retrieval-service
+
+# TODO: Implement Kong gateway configuration
+# - Add authentication plugins
+# - Configure rate limiting
+# - Set up SSL/TLS termination
+# - Add monitoring and logging
+# - Configure CORS policies

@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: chatbot
+  labels:
+    app: orchestrator
+    component: orchestrator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+        component: orchestrator
+    spec:
+      containers:
+      - name: orchestrator
+        image: chatbot-orchestrator:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DM_SERVICE_URL
+          value: "http://dm-service:8001"
+        - name: MAM_SERVICE_URL
+          value: "http://mam-service:8002"
+        - name: CMM_SERVICE_URL
+          value: "http://cmm-service:8003"
+        - name: RETRIEVAL_SERVICE_URL
+          value: "http://retrieval-service:8004"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10

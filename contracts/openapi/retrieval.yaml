@@ -1,0 +1,133 @@
+openapi: 3.0.3
+info:
+  title: Retrieval Service API
+  description: RAG (Retrieval-Augmented Generation) service for medical knowledge base search
+  version: 1.0.0
+  contact:
+    name: Platform Team
+servers:
+  - url: http://localhost:8004
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00Z"
+
+  /kb/search:
+    post:
+      summary: Search medical knowledge base
+      description: Retrieves relevant medical information based on pathway and query
+      operationId: searchKnowledgeBase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+            example:
+              pathway: "cardiology"
+              query: "chest pain assessment"
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+              example:
+                hits:
+                  - id: "doc_001"
+                    section: "assessment"
+                    snippet: "Chest pain assessment should include evaluation of duration, severity, and radiation..."
+                  - id: "doc_002"
+                    section: "differential_diagnosis"
+                    snippet: "Common causes of chest pain include angina, myocardial infarction, and musculoskeletal pain..."
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid request payload"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    SearchRequest:
+      type: object
+      required:
+        - pathway
+        - query
+      properties:
+        pathway:
+          type: string
+          description: Medical specialty or pathway to search within
+          example: "cardiology"
+        query:
+          type: string
+          description: Search query text
+          example: "chest pain assessment"
+
+    SearchResponse:
+      type: object
+      required:
+        - hits
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+          description: List of relevant search results
+          example:
+            - id: "doc_001"
+              section: "assessment"
+              snippet: "Chest pain assessment should include evaluation of duration, severity, and radiation..."
+
+    SearchHit:
+      type: object
+      required:
+        - id
+        - section
+        - snippet
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the document or section
+          example: "doc_001"
+        section:
+          type: string
+          description: Section or category of the medical information
+          example: "assessment"
+        snippet:
+          type: string
+          description: Relevant text snippet from the knowledge base
+          example: "Chest pain assessment should include evaluation of duration, severity, and radiation..."

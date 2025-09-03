@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retrieval
+  namespace: chatbot
+  labels:
+    app: retrieval
+    component: retrieval
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: retrieval
+  template:
+    metadata:
+      labels:
+        app: retrieval
+        component: retrieval
+    spec:
+      containers:
+      - name: retrieval
+        image: chatbot-retrieval:latest
+        ports:
+        - containerPort: 8004
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 30
+          periodSeconds: 10
