@@ -6,6 +6,8 @@ A microservices-based platform for intelligent hospital appointment scheduling a
 
 The platform consists of five core services:
 
+**NOTE** UPDATE THIS DOCK. WHAT CURSOR DID WAS CREATE KUBERNETES, SDKS...I DONT THINK WE NEED THIS NOW. WE CAN USE DOCKER FOR OUR APP AND JUST RUN IT ON A SITE OR SMT?
+
 - **Orchestrator (ORCH)**: Java Spring Boot service - HTTP REST API, source of truth, routes calls
 - **Diagnosis Model (DM)**: Python FastAPI service - triage/urgency evaluation
 - **Medical Assistant Model (MAM)**: Python FastAPI service - follow-up questions/messages
